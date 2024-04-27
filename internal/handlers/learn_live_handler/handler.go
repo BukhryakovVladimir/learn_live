@@ -15,10 +15,9 @@ func SetupRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/add-subject", routes.AddSubject)
 	mux.HandleFunc("/api/update-subject", routes.UpdateSubject)
 	mux.HandleFunc("/api/delete-subject", routes.DeleteSubject)
-	//delete subject
 
-	//add group
-	//update group
-	//delete group
-
+	mux.HandleFunc("/api/list-groups", routes.ListGroups)
+	mux.HandleFunc("/api/add-group", routes.AddGroup)
+	mux.HandleFunc("/api/update-group", routes.UpdateGroup)
+	mux.HandleFunc("/api/delete-group", routes.DeleteGroup)
 }
