@@ -40,7 +40,8 @@ CREATE TABLE IF NOT EXISTS room (
     id INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     subject_id INTEGER,
     room_name VARCHAR(255),
-    FOREIGN KEY (subject_id) REFERENCES subject(id)
+    FOREIGN KEY (subject_id) REFERENCES subject(id),
+    UNIQUE (subject_id, room_name)
 );
 
 CREATE TABLE IF NOT EXISTS group_subject (

@@ -19,6 +19,12 @@ func SetupRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/update-subject", routes.UpdateSubject)
 	mux.HandleFunc("/api/delete-subject", routes.DeleteSubject)
 
+	mux.HandleFunc("/api/list-rooms", routes.ListRooms)
+	mux.HandleFunc("/api/list-rooms-of-a-subject", routes.ListRoomsOfASubject)
+	mux.HandleFunc("/api/add-room", routes.AddRoom)
+	mux.HandleFunc("/api/update-room", routes.UpdateRoom)
+	mux.HandleFunc("/api/delete-room", routes.DeleteRoom)
+
 	mux.HandleFunc("/api/list-groups", routes.ListGroups)
 	mux.HandleFunc("/api/add-group", routes.AddGroup)
 	mux.HandleFunc("/api/update-group", routes.UpdateGroup)
