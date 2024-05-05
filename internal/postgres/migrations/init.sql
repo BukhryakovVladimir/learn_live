@@ -36,6 +36,13 @@ CREATE TABLE IF NOT EXISTS subject (
     subject_name VARCHAR(255)
 );
 
+CREATE TABLE IF NOT EXISTS room (
+    id INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    subject_id INTEGER,
+    room_name VARCHAR(255),
+    FOREIGN KEY (subject_id) REFERENCES subject(id)
+);
+
 CREATE TABLE IF NOT EXISTS group_subject (
     group_id INTEGER,
     subject_id INTEGER,
@@ -50,6 +57,14 @@ CREATE TABLE IF NOT EXISTS professor_subject (
     FOREIGN KEY (professor_id) REFERENCES person(id),
     FOREIGN KEY (subject_id) REFERENCES subject(id),
     PRIMARY KEY (professor_id, subject_id)
+);
+
+CREATE TABLE IF NOT EXISTS professor_group (
+    professor_id INTEGER,
+    group_id INTEGER,
+    FOREIGN KEY (professor_id) REFERENCES person(id),
+    FOREIGN KEY (group_id) REFERENCES group_uni(id),
+    PRIMARY KEY (professor_id, group_id)
 );
 
 CREATE TABLE IF NOT EXISTS student_grades (
