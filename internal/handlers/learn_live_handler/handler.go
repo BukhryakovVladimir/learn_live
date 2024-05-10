@@ -43,4 +43,11 @@ func SetupRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/add-professors-and-subjects-relation", routes.AddProfessorSubject)           // just insert
 	mux.HandleFunc("/api/update-professors-and-subjects-relation", routes.UpdateProfessorSubject)     // just update set names by id
 	mux.HandleFunc("/api/delete-professors-and-subjects-relation", routes.DeleteProfessorSubject)     // just delete by ids (remember, no body)
+
+	mux.HandleFunc("/api/list-professors-and-groups-relations", routes.ListProfessorsGroups)      // list both ids and names
+	mux.HandleFunc("/api/list-groups-of-a-professor", routes.ListGroupsOfAProfessors)             // list both ids and names
+	mux.HandleFunc("/api/list-professors-that-have-a-group", routes.ListProfessorsThatHaveAGroup) // list both ids and names
+	mux.HandleFunc("/api/add-professors-and-groups-relation", routes.AddProfessorGroup)           // just insert
+	mux.HandleFunc("/api/update-professors-and-groups-relation", routes.UpdateProfessorGroup)     // just update set names by id
+	mux.HandleFunc("/api/delete-professors-and-groups-relation", routes.DeleteProfessorGroup)     // just delete by ids (remember, no body)
 }
