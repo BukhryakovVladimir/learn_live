@@ -50,4 +50,12 @@ func SetupRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/add-professors-and-groups-relation", routes.AddProfessorGroup)           // just insert
 	mux.HandleFunc("/api/update-professors-and-groups-relation", routes.UpdateProfessorGroup)     // just update set names by id
 	mux.HandleFunc("/api/delete-professors-and-groups-relation", routes.DeleteProfessorGroup)     // just delete by ids (remember, no body)
+
+	mux.HandleFunc("/api/list-current-user-grades-and-attendance", routes.ListCurrentUserGradesAndAttendance)
+	mux.HandleFunc("/api/list-grades-and-attendance-of-a-student", routes.ListGradesAndAttendanceOfAStudent)
+	mux.HandleFunc("/api/list-grades-and-attendance-of-a-group", routes.ListGradesAndAttendanceOfAGroup)
+	mux.HandleFunc("/api/insert-grade-and-attendance-of-a-student", routes.InsertGradeAndAttendanceOfAStudent)
+	mux.HandleFunc("/api/update-grade-and-attendance-of-a-student", routes.UpdateGradeAndAttendanceOfAStudent)
+	mux.HandleFunc("/api/delete-grade-and-attendance-of-a-student", routes.DeleteGradeAndAttendanceOfAStudent)
+
 }

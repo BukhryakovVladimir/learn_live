@@ -69,10 +69,11 @@ CREATE TABLE IF NOT EXISTS professor_group (
 );
 
 CREATE TABLE IF NOT EXISTS student_grades (
+    id INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     student_id INTEGER,
     subject_id INTEGER,
-    grade INTEGER,
-    has_attended VARCHAR(1),
+    grade INTEGER DEFAULT 0,
+    has_attended BOOL DEFAULT true,
     FOREIGN KEY (student_id) REFERENCES person(id),
     FOREIGN KEY (subject_id) REFERENCES subject(id)
 );

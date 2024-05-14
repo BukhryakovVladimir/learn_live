@@ -6,6 +6,7 @@ import (
 	"errors"
 	"github.com/BukhryakovVladimir/learn_live/internal/postgres"
 	"github.com/golang-jwt/jwt/v5"
+	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -46,6 +47,100 @@ func isAdmin(issuer string) (bool, error) {
 	}
 
 	return isAdmin, nil
+}
+
+func isProfessor(issuer string) (bool, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(queryTimeLimit)*time.Second)
+	defer cancel()
+
+	var isProfessor bool
+
+	isAdminQuery := `SELECT is_professor FROM person WHERE id = $1`
+
+	err := db.QueryRowContext(ctx, isAdminQuery, issuer).Scan(&isProfessor)
+
+	if err != nil {
+		return false, err
+	}
+
+	return isProfessor, nil
+}
+
+func professorHasSubject(issuer string, subjectID int) (bool, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(queryTimeLimit)*time.Second)
+	defer cancel()
+
+	var hasSubject bool
+
+	isAdminQuery := `SELECT true FROM professor_subject WHERE professor_id = $1 AND subject_id = $2`
+
+	err := db.QueryRowContext(ctx, isAdminQuery, issuer, subjectID).Scan(&hasSubject)
+
+	if err != nil {
+		return false, err
+	}
+
+	return hasSubject, nil
+}
+
+func professorHasGroup(issuer string, studentID int) (bool, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(queryTimeLimit)*time.Second)
+	defer cancel()
+
+	var hasGroup bool
+	log.Println("professorHasGroup: issuer = ", issuer, " studentID = ", studentID)
+	isAdminQuery := `
+		SELECT true 
+		FROM professor_group pg 
+		LEFT JOIN person p ON pg.group_id = p.group_id
+		WHERE professor_id = $1 AND p.id = $2`
+
+	err := db.QueryRowContext(ctx, isAdminQuery, issuer, studentID).Scan(&hasGroup)
+
+	if err != nil {
+		return false, err
+	}
+
+	return hasGroup, nil
+}
+
+func studentHasSubject(studentID, subjectID int) (bool, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(queryTimeLimit)*time.Second)
+	defer cancel()
+
+	var hasSubject bool
+
+	isAdminQuery := `
+		SELECT true 
+		FROM person p
+		JOIN group_subject gs ON p.group_id = gs.group_id
+		WHERE p.id = $1 AND gs.subject_id = $2`
+
+	err := db.QueryRowContext(ctx, isAdminQuery, studentID, subjectID).Scan(&hasSubject)
+
+	if err != nil {
+		return false, err
+	}
+
+	return hasSubject, nil
+}
+
+func isStudent(issuer string) (bool, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(queryTimeLimit)*time.Second)
+	defer cancel()
+
+	var isAdmin bool
+	var isProfessor bool
+
+	isAdminQuery := `SELECT is_admin, is_professor FROM person WHERE id = $1`
+
+	err := db.QueryRowContext(ctx, isAdminQuery, issuer).Scan(&isAdmin, &isProfessor)
+
+	if err != nil {
+		return false, err
+	}
+
+	return !isAdmin && !isProfessor, nil
 }
 
 func checkUserExists(issuer string) (bool, error) {
