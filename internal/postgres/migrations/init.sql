@@ -79,9 +79,11 @@ CREATE TABLE IF NOT EXISTS student_grades (
 );
 
 CREATE TABLE IF NOT EXISTS student_total_grades (
+    id INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     student_id INTEGER,
     subject_id INTEGER,
     grade VARCHAR(50),
     FOREIGN KEY (student_id) REFERENCES person(id),
-    FOREIGN KEY (subject_id) REFERENCES subject(id)
+    FOREIGN KEY (subject_id) REFERENCES subject(id),
+    UNIQUE (student_id, subject_id)
 );

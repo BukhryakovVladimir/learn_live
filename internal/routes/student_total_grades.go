@@ -11,9 +11,10 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+	"unicode/utf8"
 )
 
-func ListCurrentUserGradesAndAttendance(w http.ResponseWriter, r *http.Request) {
+func ListCurrentUserTotalGrades(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Invalid HTTP method. Only GET is allowed.", http.StatusMethodNotAllowed)
 		return
@@ -54,25 +55,25 @@ func ListCurrentUserGradesAndAttendance(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if !isStudent {
-		http.Error(w, "Only students have grades", http.StatusUnauthorized)
+		http.Error(w, "Only students have total grades", http.StatusUnauthorized)
 		return
 	}
 
-	listCurrentUserGradesAndAttendanceQuery := `
-	SELECT sg.subject_id, s.subject_name, sg.grade, sg.has_attended
-	FROM student_grades sg
-	JOIN subject s ON sg.subject_id = s.id  
+	listCurrentUserTotalGradesQuery := `
+	SELECT DISTINCT stg.subject_id, s.subject_name, stg.grade
+	FROM student_total_grades stg
+	JOIN subject s ON stg.subject_id = s.id  
 	WHERE student_id = $1`
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(queryTimeLimit)*time.Second)
 	defer cancel()
 
-	rows, err := db.QueryContext(ctx, listCurrentUserGradesAndAttendanceQuery, claims.Issuer)
+	rows, err := db.QueryContext(ctx, listCurrentUserTotalGradesQuery, claims.Issuer)
 	defer rows.Close()
 
 	if err != nil {
 		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-			log.Println("ListCurrentUserGradesAndAttendance QueryRowContext deadline exceeded: ", err)
+			log.Println("ListCurrentUserTotalGrades QueryRowContext deadline exceeded: ", err)
 			http.Error(w, "Database query time limit exceeded", http.StatusGatewayTimeout)
 			return
 		}
@@ -89,21 +90,20 @@ func ListCurrentUserGradesAndAttendance(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	var studentGrade model.StudentGrade
-	var studentGrades []model.StudentGrade
+	var studentTotalGrade model.StudentTotalGrade
+	var studentTotalGrades []model.StudentTotalGrade
 
 	for rows.Next() {
 		if err := rows.Scan(
-			&studentGrade.SubjectID,
-			&studentGrade.SubjectName,
-			&studentGrade.Grade,
-			&studentGrade.HasAttended); err != nil {
+			&studentTotalGrade.SubjectID,
+			&studentTotalGrade.SubjectName,
+			&studentTotalGrade.Grade); err != nil {
 			log.Println(err)
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			return
 		}
 
-		studentGrades = append(studentGrades, studentGrade)
+		studentTotalGrades = append(studentTotalGrades, studentTotalGrade)
 	}
 
 	if err := rows.Err(); err != nil {
@@ -112,7 +112,7 @@ func ListCurrentUserGradesAndAttendance(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	resp, err := json.Marshal(studentGrades)
+	resp, err := json.Marshal(studentTotalGrades)
 	if err != nil {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
@@ -122,11 +122,11 @@ func ListCurrentUserGradesAndAttendance(w http.ResponseWriter, r *http.Request) 
 	w.WriteHeader(http.StatusOK)
 	_, err = w.Write(resp)
 	if err != nil {
-		log.Printf("List Current User Grades And Attendance failed: %v\n", err)
+		log.Printf("List Current User Total Grades failed: %v\n", err)
 	}
 }
 
-func ListGradesAndAttendanceOfAStudent(w http.ResponseWriter, r *http.Request) {
+func ListTotalGradesOfAStudent(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Invalid HTTP method. Only GET is allowed.", http.StatusMethodNotAllowed)
 		return
@@ -139,12 +139,12 @@ func ListGradesAndAttendanceOfAStudent(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "student_id must be an integer", http.StatusBadRequest)
 	}
 
-	listGradesAndAttendanceOfAStudentQuery := `
-	SELECT sg.student_id, p.firstname, p.lastname, p.group_id, 
-	       g.group_name, sg.subject_id, s.subject_name, sg.grade, sg.has_attended
-	FROM student_grades sg
-	JOIN subject s ON sg.subject_id = s.id
-	JOIN person p ON sg.student_id = p.id
+	listTotalGradesOfAStudentQuery := `
+	SELECT DISTINCT stg.student_id, p.firstname, p.lastname, p.group_id, 
+	       g.group_name, stg.subject_id, s.subject_name, stg.grade
+	FROM student_total_grades stg
+	JOIN subject s ON stg.subject_id = s.id
+	JOIN person p ON stg.student_id = p.id
 	JOIN group_subject gs ON p.group_id = gs.group_id
 	JOIN group_uni g ON gs.group_id = g.id
 	WHERE student_id = $1`
@@ -152,12 +152,12 @@ func ListGradesAndAttendanceOfAStudent(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(queryTimeLimit)*time.Second)
 	defer cancel()
 
-	rows, err := db.QueryContext(ctx, listGradesAndAttendanceOfAStudentQuery, studentID)
+	rows, err := db.QueryContext(ctx, listTotalGradesOfAStudentQuery, studentID)
 	defer rows.Close()
 
 	if err != nil {
 		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-			log.Println("ListGradesAndAttendanceOfAStudent QueryRowContext deadline exceeded: ", err)
+			log.Println("ListTotalGradesOfAStudent QueryRowContext deadline exceeded: ", err)
 			http.Error(w, "Database query time limit exceeded", http.StatusGatewayTimeout)
 			return
 		}
@@ -174,26 +174,25 @@ func ListGradesAndAttendanceOfAStudent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var studentGrade model.StudentGrade
-	var studentGrades []model.StudentGrade
+	var studentTotalGrade model.StudentTotalGrade
+	var studentTotalGrades []model.StudentTotalGrade
 
 	for rows.Next() {
 		if err := rows.Scan(
-			&studentGrade.StudentID,
-			&studentGrade.StudentFirstname,
-			&studentGrade.StudentLastname,
-			&studentGrade.StudentGroupID,
-			&studentGrade.StudentGroupName,
-			&studentGrade.SubjectID,
-			&studentGrade.SubjectName,
-			&studentGrade.Grade,
-			&studentGrade.HasAttended); err != nil {
+			&studentTotalGrade.StudentID,
+			&studentTotalGrade.StudentFirstname,
+			&studentTotalGrade.StudentLastname,
+			&studentTotalGrade.StudentGroupID,
+			&studentTotalGrade.StudentGroupName,
+			&studentTotalGrade.SubjectID,
+			&studentTotalGrade.SubjectName,
+			&studentTotalGrade.Grade); err != nil {
 			log.Println(err)
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			return
 		}
 
-		studentGrades = append(studentGrades, studentGrade)
+		studentTotalGrades = append(studentTotalGrades, studentTotalGrade)
 	}
 
 	if err := rows.Err(); err != nil {
@@ -202,7 +201,7 @@ func ListGradesAndAttendanceOfAStudent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := json.Marshal(studentGrades)
+	resp, err := json.Marshal(studentTotalGrades)
 	if err != nil {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
@@ -212,11 +211,11 @@ func ListGradesAndAttendanceOfAStudent(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	_, err = w.Write(resp)
 	if err != nil {
-		log.Printf("List Grades And Attendance Of A Student failed: %v\n", err)
+		log.Printf("List Total Grades Of A Student failed: %v\n", err)
 	}
 }
 
-func ListGradesAndAttendanceOfAGroup(w http.ResponseWriter, r *http.Request) {
+func ListTotalGradesOfAGroup(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Invalid HTTP method. Only GET is allowed.", http.StatusMethodNotAllowed)
 		return
@@ -229,12 +228,12 @@ func ListGradesAndAttendanceOfAGroup(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "group_id must be an integer", http.StatusBadRequest)
 	}
 
-	listGradesAndAttendanceOfAStudentQuery := `
-	SELECT sg.student_id, p.firstname, p.lastname, p.group_id, 
-	       g.group_name, sg.subject_id, s.subject_name, sg.grade, sg.has_attended
-	FROM student_grades sg
-	JOIN subject s ON sg.subject_id = s.id
-	JOIN person p ON sg.student_id = p.id
+	listTotalGradesOfAStudentQuery := `
+	SELECT DISTINCT stg.student_id, p.firstname, p.lastname, p.group_id, 
+	       g.group_name, stg.subject_id, s.subject_name, stg.grade
+	FROM student_total_grades stg
+	JOIN subject s ON stg.subject_id = s.id
+	JOIN person p ON stg.student_id = p.id
 	JOIN group_subject gs ON p.group_id = gs.group_id
 	JOIN group_uni g ON gs.group_id = g.id
 	WHERE p.group_id = $1`
@@ -242,12 +241,12 @@ func ListGradesAndAttendanceOfAGroup(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(queryTimeLimit)*time.Second)
 	defer cancel()
 
-	rows, err := db.QueryContext(ctx, listGradesAndAttendanceOfAStudentQuery, groupID)
+	rows, err := db.QueryContext(ctx, listTotalGradesOfAStudentQuery, groupID)
 	defer rows.Close()
 
 	if err != nil {
 		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-			log.Println("ListGradesAndAttendanceOfAGroup QueryRowContext deadline exceeded: ", err)
+			log.Println("ListTotalGradesOfAGroup QueryRowContext deadline exceeded: ", err)
 			http.Error(w, "Database query time limit exceeded", http.StatusGatewayTimeout)
 			return
 		}
@@ -264,26 +263,25 @@ func ListGradesAndAttendanceOfAGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var studentGrade model.StudentGrade
-	var studentGrades []model.StudentGrade
+	var studentTotalGrade model.StudentTotalGrade
+	var studentTotalGrades []model.StudentTotalGrade
 
 	for rows.Next() {
 		if err := rows.Scan(
-			&studentGrade.StudentID,
-			&studentGrade.StudentFirstname,
-			&studentGrade.StudentLastname,
-			&studentGrade.StudentGroupID,
-			&studentGrade.StudentGroupName,
-			&studentGrade.SubjectID,
-			&studentGrade.SubjectName,
-			&studentGrade.Grade,
-			&studentGrade.HasAttended); err != nil {
+			&studentTotalGrade.StudentID,
+			&studentTotalGrade.StudentFirstname,
+			&studentTotalGrade.StudentLastname,
+			&studentTotalGrade.StudentGroupID,
+			&studentTotalGrade.StudentGroupName,
+			&studentTotalGrade.SubjectID,
+			&studentTotalGrade.SubjectName,
+			&studentTotalGrade.Grade); err != nil {
 			log.Println(err)
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			return
 		}
 
-		studentGrades = append(studentGrades, studentGrade)
+		studentTotalGrades = append(studentTotalGrades, studentTotalGrade)
 	}
 
 	if err := rows.Err(); err != nil {
@@ -292,7 +290,7 @@ func ListGradesAndAttendanceOfAGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := json.Marshal(studentGrades)
+	resp, err := json.Marshal(studentTotalGrades)
 	if err != nil {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
@@ -302,11 +300,11 @@ func ListGradesAndAttendanceOfAGroup(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	_, err = w.Write(resp)
 	if err != nil {
-		log.Printf("List Grades And Attendance Of A Group failed: %v\n", err)
+		log.Printf("List Total Grades Of A Group failed: %v\n", err)
 	}
 }
 
-func InsertGradeAndAttendanceOfAStudent(w http.ResponseWriter, r *http.Request) {
+func InsertTotalGradeOfAStudent(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Invalid HTTP method. Only POST is allowed.", http.StatusMethodNotAllowed)
 		return
@@ -351,15 +349,15 @@ func InsertGradeAndAttendanceOfAStudent(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	var studentGrade model.StudentGrade
-	err = json.NewDecoder(r.Body).Decode(&studentGrade)
+	var studentTotalGrade model.StudentTotalGrade
+	err = json.NewDecoder(r.Body).Decode(&studentTotalGrade)
 	if err != nil {
 		http.Error(w, "Error reading request body", http.StatusInternalServerError)
 		return
 	}
 	defer r.Body.Close()
 
-	hasSubject, err := professorHasSubject(claims.Issuer, studentGrade.SubjectID)
+	hasSubject, err := professorHasSubject(claims.Issuer, studentTotalGrade.SubjectID)
 	if err != nil {
 		log.Println("professorHasSubject error: ", err)
 		http.Error(w, "Error while checking professor privileges", http.StatusInternalServerError)
@@ -367,11 +365,11 @@ func InsertGradeAndAttendanceOfAStudent(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if !hasSubject {
-		http.Error(w, "You can only set grades for subjects that you teach", http.StatusUnauthorized)
+		http.Error(w, "You can only set total grades for subjects that you teach", http.StatusUnauthorized)
 		return
 	}
 
-	hasGroup, err := professorHasGroup(claims.Issuer, studentGrade.StudentID)
+	hasGroup, err := professorHasGroup(claims.Issuer, studentTotalGrade.StudentID)
 	if err != nil {
 		log.Println("professorHasGroup error: ", err)
 		http.Error(w, "Error while checking professor privileges", http.StatusInternalServerError)
@@ -379,11 +377,11 @@ func InsertGradeAndAttendanceOfAStudent(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if !hasGroup {
-		http.Error(w, "You can only set grades for students from groups that you teach", http.StatusUnauthorized)
+		http.Error(w, "You can only set total grades for students from groups that you teach", http.StatusUnauthorized)
 		return
 	}
 
-	studentHasSubject, err := studentHasSubject(studentGrade.StudentID, studentGrade.SubjectID)
+	studentHasSubject, err := studentHasSubject(studentTotalGrade.StudentID, studentTotalGrade.SubjectID)
 	if err != nil {
 		http.Error(w, "Error while checking if student has this subject", http.StatusInternalServerError)
 		return
@@ -394,29 +392,29 @@ func InsertGradeAndAttendanceOfAStudent(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if studentGrade.Grade != 0 && studentGrade.HasAttended == false {
-		studentGrade.HasAttended = true
+	if utf8.RuneCountInString(studentTotalGrade.Grade) > 50 {
+		http.Error(w, "Grade length cannot be bigger than 50 characters", http.StatusBadRequest)
+		return
 	}
 
-	insertGradeAndAttendanceOfAStudentQuery := `
-		INSERT INTO student_grades 
-		    (student_id, subject_id, grade, has_attended) 
-		VALUES ($1, $2, $3, $4);`
+	insertTotalGradeOfAStudentQuery := `
+		INSERT INTO student_total_grades 
+		    (student_id, subject_id, grade) 
+		VALUES ($1, $2, $3);`
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(queryTimeLimit)*time.Second)
 	defer cancel()
 
 	_, err = db.ExecContext(
 		ctx,
-		insertGradeAndAttendanceOfAStudentQuery,
-		studentGrade.StudentID,
-		studentGrade.SubjectID,
-		studentGrade.Grade,
-		studentGrade.HasAttended)
+		insertTotalGradeOfAStudentQuery,
+		studentTotalGrade.StudentID,
+		studentTotalGrade.SubjectID,
+		studentTotalGrade.Grade)
 
 	if err != nil {
 		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-			log.Println("InsertGradeAndAttendanceOfAStudent QueryRowContext deadline exceeded: ", err)
+			log.Println("InsertTotalGradeOfAStudent QueryRowContext deadline exceeded: ", err)
 			http.Error(w, "Database query time limit exceeded", http.StatusGatewayTimeout)
 			return
 		}
@@ -428,12 +426,18 @@ func InsertGradeAndAttendanceOfAStudent(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 
+		if pgErr.Code == "23505" {
+			log.Println("Unique key violation, student already has a grade for this subject: ", err)
+			http.Error(w, "Student already has a grade for this subject", http.StatusGatewayTimeout)
+			return
+		}
+
 		log.Println("Database error: ", pgErr)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 
-	resp, err := json.Marshal("Inserting Grade And Attendance Of A Student Successful")
+	resp, err := json.Marshal("Inserting Total Grade Of A Student Successful")
 	if err != nil {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
@@ -443,13 +447,13 @@ func InsertGradeAndAttendanceOfAStudent(w http.ResponseWriter, r *http.Request) 
 	w.WriteHeader(http.StatusCreated)
 	_, err = w.Write(resp)
 	if err != nil {
-		log.Printf("InsertGradeAndAttendanceOfAStudent failed: %v\n", err)
+		log.Printf("InsertTotalGradeOfAStudent failed: %v\n", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 }
 
-func UpdateGradeAndAttendanceOfAStudent(w http.ResponseWriter, r *http.Request) {
+func UpdateTotalGradeOfAStudent(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPut {
 		http.Error(w, "Invalid HTTP method. Only PUT is allowed.", http.StatusMethodNotAllowed)
 		return
@@ -494,15 +498,15 @@ func UpdateGradeAndAttendanceOfAStudent(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	var studentGrade model.StudentGrade
-	err = json.NewDecoder(r.Body).Decode(&studentGrade)
+	var studentTotalGrade model.StudentTotalGrade
+	err = json.NewDecoder(r.Body).Decode(&studentTotalGrade)
 	if err != nil {
 		http.Error(w, "Error reading request body", http.StatusInternalServerError)
 		return
 	}
 	defer r.Body.Close()
 
-	hasSubject, err := professorHasSubject(claims.Issuer, studentGrade.SubjectID)
+	hasSubject, err := professorHasSubject(claims.Issuer, studentTotalGrade.SubjectID)
 	if err != nil {
 		log.Println("professorHasSubject error: ", err)
 		http.Error(w, "Error while checking professor privileges", http.StatusInternalServerError)
@@ -510,11 +514,11 @@ func UpdateGradeAndAttendanceOfAStudent(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if !hasSubject {
-		http.Error(w, "You can only update grades for subjects that you teach", http.StatusUnauthorized)
+		http.Error(w, "You can only update total grades for subjects that you teach", http.StatusUnauthorized)
 		return
 	}
 
-	hasGroup, err := professorHasGroup(claims.Issuer, studentGrade.StudentID)
+	hasGroup, err := professorHasGroup(claims.Issuer, studentTotalGrade.StudentID)
 	if err != nil {
 		log.Println("professorHasGroup error: ", err)
 		http.Error(w, "Error while checking professor privileges", http.StatusInternalServerError)
@@ -522,11 +526,11 @@ func UpdateGradeAndAttendanceOfAStudent(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if !hasGroup {
-		http.Error(w, "You can only update grades for students from groups that you teach", http.StatusUnauthorized)
+		http.Error(w, "You can only update total grades for students from groups that you teach", http.StatusUnauthorized)
 		return
 	}
 
-	studentHasSubject, err := studentHasSubject(studentGrade.StudentID, studentGrade.SubjectID)
+	studentHasSubject, err := studentHasSubject(studentTotalGrade.StudentID, studentTotalGrade.SubjectID)
 	if err != nil {
 		http.Error(w, "Error while checking if student has this subject", http.StatusInternalServerError)
 		return
@@ -537,30 +541,30 @@ func UpdateGradeAndAttendanceOfAStudent(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if studentGrade.Grade != 0 && studentGrade.HasAttended == false {
-		studentGrade.HasAttended = true
+	if utf8.RuneCountInString(studentTotalGrade.Grade) > 50 {
+		http.Error(w, "Grade length cannot be bigger than 50 characters", http.StatusBadRequest)
+		return
 	}
 
-	updateGradeAndAttendanceOfAStudentQuery := `
-		UPDATE student_grades 
-		SET student_id = $1, subject_id = $2, grade = $3, has_attended = $4 
-		WHERE id = $5;`
+	updateTotalGradeOfAStudentQuery := `
+		UPDATE student_total_grades 
+		SET student_id = $1, subject_id = $2, grade = $3 
+		WHERE id = $4;`
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(queryTimeLimit)*time.Second)
 	defer cancel()
 
 	_, err = db.ExecContext(
 		ctx,
-		updateGradeAndAttendanceOfAStudentQuery,
-		studentGrade.StudentID,
-		studentGrade.SubjectID,
-		studentGrade.Grade,
-		studentGrade.HasAttended,
-		studentGrade.ID)
+		updateTotalGradeOfAStudentQuery,
+		studentTotalGrade.StudentID,
+		studentTotalGrade.SubjectID,
+		studentTotalGrade.Grade,
+		studentTotalGrade.ID)
 
 	if err != nil {
 		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-			log.Println("UpdateGradeAndAttendanceOfAStudent QueryRowContext deadline exceeded: ", err)
+			log.Println("UpdateTotalGradeOfAStudent QueryRowContext deadline exceeded: ", err)
 			http.Error(w, "Database query time limit exceeded", http.StatusGatewayTimeout)
 			return
 		}
@@ -572,12 +576,18 @@ func UpdateGradeAndAttendanceOfAStudent(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 
+		if pgErr.Code == "23505" {
+			log.Println("Unique key violation, student already has a grade for this subject: ", err)
+			http.Error(w, "Student already has a grade for this subject", http.StatusGatewayTimeout)
+			return
+		}
+
 		log.Println("Database error: ", pgErr)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 
-	resp, err := json.Marshal("Updating Grade And Attendance Of A Student Successful")
+	resp, err := json.Marshal("Updating Total Grade Of A Student Successful")
 	if err != nil {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
@@ -587,13 +597,13 @@ func UpdateGradeAndAttendanceOfAStudent(w http.ResponseWriter, r *http.Request) 
 	w.WriteHeader(http.StatusCreated)
 	_, err = w.Write(resp)
 	if err != nil {
-		log.Printf("UpdateGradeAndAttendanceOfAStudent failed: %v\n", err)
+		log.Printf("UpdateTotalGradeOfAStudent failed: %v\n", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 }
 
-func DeleteGradeAndAttendanceOfAStudent(w http.ResponseWriter, r *http.Request) {
+func DeleteTotalGradeOfAStudent(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodDelete {
 		http.Error(w, "Invalid HTTP method. Only DELETE is allowed.", http.StatusMethodNotAllowed)
 		return
@@ -663,7 +673,7 @@ func DeleteGradeAndAttendanceOfAStudent(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if !hasSubject {
-		http.Error(w, "You can only delete grades for subjects that you teach", http.StatusUnauthorized)
+		http.Error(w, "You can only delete total grades for subjects that you teach", http.StatusUnauthorized)
 		return
 	}
 
@@ -675,7 +685,7 @@ func DeleteGradeAndAttendanceOfAStudent(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if !hasGroup {
-		http.Error(w, "You can only delete grades for students from groups that you teach", http.StatusUnauthorized)
+		http.Error(w, "You can only delete total grades for students from groups that you teach", http.StatusUnauthorized)
 		return
 	}
 
@@ -691,16 +701,16 @@ func DeleteGradeAndAttendanceOfAStudent(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	deleteGradeAndAttendanceOfAStudentQuery := `DELETE FROM student_grades WHERE id = $1 AND student_id = $2 AND subject_id = $3`
+	deleteTotalGradeOfAStudentQuery := `DELETE FROM student_total_grades WHERE id = $1 AND student_id = $2 AND subject_id = $3`
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(queryTimeLimit)*time.Second)
 	defer cancel()
 
-	_, err = db.ExecContext(ctx, deleteGradeAndAttendanceOfAStudentQuery, id, studentID, subjectID)
+	_, err = db.ExecContext(ctx, deleteTotalGradeOfAStudentQuery, id, studentID, subjectID)
 
 	if err != nil {
 		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-			log.Println("DeleteGradeAndAttendanceOfAStudent QueryRowContext deadline exceeded: ", err)
+			log.Println("DeleteTotalGradeOfAStudent QueryRowContext deadline exceeded: ", err)
 			http.Error(w, "Database query time limit exceeded", http.StatusGatewayTimeout)
 			return
 		}
@@ -717,7 +727,7 @@ func DeleteGradeAndAttendanceOfAStudent(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	resp, err := json.Marshal("Deleting Grade And Attendance Of A Student Successful")
+	resp, err := json.Marshal("Deleting Total Grade Of A Student Successful")
 	if err != nil {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
@@ -727,7 +737,7 @@ func DeleteGradeAndAttendanceOfAStudent(w http.ResponseWriter, r *http.Request) 
 	w.WriteHeader(http.StatusCreated)
 	_, err = w.Write(resp)
 	if err != nil {
-		log.Printf("DeleteGradeAndAttendanceOfAStudent failed: %v\n", err)
+		log.Printf("DeleteTotalGradeOfAStudent failed: %v\n", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}

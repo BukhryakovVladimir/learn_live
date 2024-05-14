@@ -58,4 +58,11 @@ func SetupRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/update-grade-and-attendance-of-a-student", routes.UpdateGradeAndAttendanceOfAStudent)
 	mux.HandleFunc("/api/delete-grade-and-attendance-of-a-student", routes.DeleteGradeAndAttendanceOfAStudent)
 
+	mux.HandleFunc("/api/list-current-user-total-grades", routes.ListCurrentUserTotalGrades)
+	mux.HandleFunc("/api/list-total-grades-of-a-student", routes.ListTotalGradesOfAStudent)
+	mux.HandleFunc("/api/list-total-grades-of-a-group", routes.ListTotalGradesOfAGroup)
+	mux.HandleFunc("/api/insert-total-grade-of-a-student", routes.InsertTotalGradeOfAStudent)
+	mux.HandleFunc("/api/update-total-grade-of-a-student", routes.UpdateTotalGradeOfAStudent)
+	mux.HandleFunc("/api/delete-total-grade-of-a-student", routes.DeleteTotalGradeOfAStudent)
+
 }
