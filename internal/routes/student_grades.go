@@ -226,7 +226,7 @@ func ListGradesAndAttendanceOfAGroup(w http.ResponseWriter, r *http.Request) {
 
 	groupID, err := strconv.Atoi(paramGroupID)
 	if err != nil {
-		http.Error(w, "student_id must be an integer", http.StatusBadRequest)
+		http.Error(w, "group_id must be an integer", http.StatusBadRequest)
 	}
 
 	listGradesAndAttendanceOfAStudentQuery := `
@@ -398,7 +398,7 @@ func InsertGradeAndAttendanceOfAStudent(w http.ResponseWriter, r *http.Request) 
 		studentGrade.HasAttended = true
 	}
 
-	insertGroupSubjectQuery := `
+	insertGradeAndAttendanceOfAStudentQuery := `
 		INSERT INTO student_grades 
 		    (student_id, subject_id, grade, has_attended) 
 		VALUES ($1, $2, $3, $4);`
@@ -408,7 +408,7 @@ func InsertGradeAndAttendanceOfAStudent(w http.ResponseWriter, r *http.Request) 
 
 	_, err = db.ExecContext(
 		ctx,
-		insertGroupSubjectQuery,
+		insertGradeAndAttendanceOfAStudentQuery,
 		studentGrade.StudentID,
 		studentGrade.SubjectID,
 		studentGrade.Grade,
@@ -541,7 +541,7 @@ func UpdateGradeAndAttendanceOfAStudent(w http.ResponseWriter, r *http.Request) 
 		studentGrade.HasAttended = true
 	}
 
-	insertGroupSubjectQuery := `
+	updateGradeAndAttendanceOfAStudentQuery := `
 		UPDATE student_grades 
 		SET student_id = $1, subject_id = $2, grade = $3, has_attended = $4 
 		WHERE id = $5;`
@@ -551,7 +551,7 @@ func UpdateGradeAndAttendanceOfAStudent(w http.ResponseWriter, r *http.Request) 
 
 	_, err = db.ExecContext(
 		ctx,
-		insertGroupSubjectQuery,
+		updateGradeAndAttendanceOfAStudentQuery,
 		studentGrade.StudentID,
 		studentGrade.SubjectID,
 		studentGrade.Grade,
@@ -638,26 +638,36 @@ func DeleteGradeAndAttendanceOfAStudent(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	var studentGrade model.StudentGrade
-	err = json.NewDecoder(r.Body).Decode(&studentGrade)
+	paramID := r.URL.Query().Get("id")
+	id, err := strconv.Atoi(paramID)
 	if err != nil {
-		http.Error(w, "Error reading request body", http.StatusInternalServerError)
-		return
+		http.Error(w, "id must be an integer", http.StatusBadRequest)
 	}
-	defer r.Body.Close()
 
-	hasSubject, err := professorHasSubject(claims.Issuer, studentGrade.SubjectID)
+	paramStudentID := r.URL.Query().Get("student_id")
+	studentID, err := strconv.Atoi(paramStudentID)
+	if err != nil {
+		http.Error(w, "student_id must be an integer", http.StatusBadRequest)
+	}
+
+	paramSubjectID := r.URL.Query().Get("subject_id")
+	subjectID, err := strconv.Atoi(paramSubjectID)
+	if err != nil {
+		http.Error(w, "subject_id must be an integer", http.StatusBadRequest)
+	}
+
+	hasSubject, err := professorHasSubject(claims.Issuer, subjectID)
 	if err != nil {
 		http.Error(w, "Error while checking professor privileges", http.StatusInternalServerError)
 		return
 	}
 
 	if !hasSubject {
-		http.Error(w, "You can only set grades for subjects that you teach", http.StatusUnauthorized)
+		http.Error(w, "You can only delete grades for subjects that you teach", http.StatusUnauthorized)
 		return
 	}
 
-	hasGroup, err := professorHasGroup(claims.Issuer, studentGrade.StudentID)
+	hasGroup, err := professorHasGroup(claims.Issuer, studentID)
 	if err != nil {
 		log.Println("professorHasGroup error: ", err)
 		http.Error(w, "Error while checking professor privileges", http.StatusInternalServerError)
@@ -665,11 +675,11 @@ func DeleteGradeAndAttendanceOfAStudent(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if !hasGroup {
-		http.Error(w, "You can only set grades for students from groups that you teach", http.StatusUnauthorized)
+		http.Error(w, "You can only delete grades for students from groups that you teach", http.StatusUnauthorized)
 		return
 	}
 
-	studentHasSubject, err := studentHasSubject(studentGrade.StudentID, studentGrade.SubjectID)
+	studentHasSubject, err := studentHasSubject(studentID, subjectID)
 	if err != nil {
 		log.Println("studentHasSubject error: ", err)
 		http.Error(w, "Error while checking if student has this subject", http.StatusInternalServerError)
@@ -681,12 +691,12 @@ func DeleteGradeAndAttendanceOfAStudent(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	insertGroupSubjectQuery := `DELETE FROM student_grades WHERE id = $1`
+	deleteGradeAndAttendanceOfAStudentQuery := `DELETE FROM student_grades WHERE id = $1 AND student_id = $2 AND subject_id = $3`
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(queryTimeLimit)*time.Second)
 	defer cancel()
 
-	_, err = db.ExecContext(ctx, insertGroupSubjectQuery, studentGrade.ID)
+	_, err = db.ExecContext(ctx, deleteGradeAndAttendanceOfAStudentQuery, id, studentID, subjectID)
 
 	if err != nil {
 		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
