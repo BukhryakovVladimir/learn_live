@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/BukhryakovVladimir/learn_live/internal/model"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/lib/pq"
@@ -172,7 +173,7 @@ func LoginPerson(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
-	getUserDataQuery := `SELECT id, password FROM person WHERE username = $1::text`
+	getUserDataQuery := `SELECT id, firstname, lastname, password FROM person WHERE username = $1::text`
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(queryTimeLimit)*time.Second)
 	defer cancel()
@@ -189,8 +190,8 @@ func LoginPerson(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
-	var userID, passwordHash string
-	if err := row.Scan(&userID, &passwordHash); err != nil {
+	var userID, firstname, lastname, passwordHash string
+	if err := row.Scan(&userID, &firstname, &lastname, &passwordHash); err != nil {
 		http.Error(w, "Username not found", http.StatusNotFound)
 		return
 	}
@@ -205,8 +206,15 @@ func LoginPerson(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	subject := fmt.Sprintf("%v %v (%v ID: %v)",
+		lastname,
+		firstname,
+		person.Username,
+		userID)
+
 	claims := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.RegisteredClaims{
 		Issuer:    userID,
+		Subject:   subject,
 		ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * 24 * 30)),
 	})
 
