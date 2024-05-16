@@ -66,4 +66,6 @@ func SetupRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/update-total-grade-of-a-student", routes.UpdateTotalGradeOfAStudent)
 	mux.HandleFunc("/api/delete-total-grade-of-a-student", routes.DeleteTotalGradeOfAStudent)
 
+	mux.HandleFunc("/api/get-token", routes.GetToken)
+
 }
