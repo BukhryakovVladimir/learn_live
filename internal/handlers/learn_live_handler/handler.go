@@ -7,6 +7,7 @@ import (
 
 func SetupRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/signup", routes.SignupPerson)
+	mux.HandleFunc("/api/check-is-admin-or-professor", routes.CheckIsAdminOrProfessor)
 	//list students for professors and admins
 	//list professors for all users
 	//list admins is admin and professor privilege
