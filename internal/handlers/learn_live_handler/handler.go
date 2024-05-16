@@ -14,6 +14,7 @@ func SetupRoutes(mux *http.ServeMux) {
 	//update person
 	mux.HandleFunc("/api/login", routes.LoginPerson)
 
+	mux.HandleFunc("/api/list-current-user-subjects", routes.ListCurrentUserSubjects) // list both ids and names
 	mux.HandleFunc("/api/list-subjects", routes.ListSubjects)
 	mux.HandleFunc("/api/add-subject", routes.AddSubject)
 	mux.HandleFunc("/api/update-subject", routes.UpdateSubject)

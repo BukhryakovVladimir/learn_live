@@ -13,6 +13,133 @@ import (
 	"time"
 )
 
+func ListCurrentUserSubjects(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Invalid HTTP method. Only GET is allowed.", http.StatusMethodNotAllowed)
+		return
+	}
+
+	cookie, err := r.Cookie(jwtName)
+
+	if err != nil {
+		http.Error(w, "Unauthenticated", http.StatusUnauthorized)
+		return
+	}
+
+	token, err := jwtCheck(cookie)
+
+	if err != nil {
+		http.Error(w, "Unauthenticated", http.StatusUnauthorized)
+		return
+	}
+
+	claims := token.Claims.(*jwt.RegisteredClaims)
+
+	userExists, err := checkUserExists(claims.Issuer)
+	if err != nil {
+		http.Error(w, "Error while checking user authorization", http.StatusInternalServerError)
+		return
+	}
+
+	if !userExists {
+		log.Println("User with id ", claims.Issuer, "does not exist: ", err)
+		http.Error(w, "You are not logged in", http.StatusUnauthorized)
+		return
+	}
+
+	isProfessor, err := isProfessor(claims.Issuer)
+	if err != nil {
+		http.Error(w, "Error while checking professor privileges", http.StatusInternalServerError)
+		return
+	}
+
+	isStudent, err := isStudent(claims.Issuer)
+	if err != nil {
+		http.Error(w, "Error while checking is user is a student", http.StatusInternalServerError)
+		return
+	}
+
+	var listSubjectsOfAUserQuery string
+
+	switch {
+	case isProfessor:
+		listSubjectsOfAUserQuery = `
+			SELECT ps.subject_id, s.subject_name
+			FROM professor_subject ps
+			JOIN person p ON ps.professor_id = p.id
+			JOIN subject s ON ps.subject_id = s.id
+			WHERE ps.professor_id = $1
+			ORDER BY ps.subject_id;`
+	case isStudent:
+		listSubjectsOfAUserQuery = `
+			SELECT gs.subject_id, s.subject_name
+			FROM group_subject gs 
+			JOIN person p ON gs.group_id = p.group_id
+			JOIN subject s ON gs.subject_id = s.id
+			WHERE p.id = $1
+			ORDER BY gs.subject_id`
+	default:
+		http.Error(w, "Admins don't have any subjects", http.StatusBadRequest)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(queryTimeLimit)*time.Second)
+	defer cancel()
+
+	rows, err := db.QueryContext(ctx, listSubjectsOfAUserQuery, claims.Issuer)
+	defer rows.Close()
+	if err != nil {
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			log.Println("ListCurrentUserSubjects QueryRowContext deadline exceeded: ", err)
+			http.Error(w, "Database query time limit exceeded", http.StatusGatewayTimeout)
+			return
+		}
+
+		var pgErr *pq.Error
+		if ok := errors.As(err, &pgErr); !ok {
+			log.Println("Internal server error: ", err)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+
+		log.Println("Database error: ", pgErr)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	var subject model.Subject
+	var subjects []model.Subject
+
+	for rows.Next() {
+		if err := rows.Scan(&subject.ID, &subject.SubjectName); err != nil {
+			log.Println(err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+
+		subjects = append(subjects, subject)
+	}
+
+	if err := rows.Err(); err != nil {
+		log.Println(err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	resp, err := json.Marshal(subjects)
+	if err != nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_, err = w.Write(resp)
+	if err != nil {
+		log.Printf("List Current User Subjects failed: %v\n", err)
+	}
+}
+
 func ListSubjects(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Invalid HTTP method. Only GET is allowed.", http.StatusMethodNotAllowed)
