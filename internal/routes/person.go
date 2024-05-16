@@ -158,6 +158,71 @@ func SignupPerson(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func CheckIsAdminOrProfessor(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Invalid HTTP method. Only GET is allowed.", http.StatusMethodNotAllowed)
+		return
+	}
+
+	cookie, err := r.Cookie(jwtName)
+
+	if err != nil {
+		http.Error(w, "Unauthenticated", http.StatusUnauthorized)
+		return
+	}
+
+	token, err := jwtCheck(cookie)
+
+	if err != nil {
+		http.Error(w, "Unauthenticated", http.StatusUnauthorized)
+		return
+	}
+
+	claims := token.Claims.(*jwt.RegisteredClaims)
+
+	userExists, err := checkUserExists(claims.Issuer)
+	if err != nil {
+		http.Error(w, "Error while checking user authorization", http.StatusInternalServerError)
+		return
+	}
+
+	if !userExists {
+		log.Println("User with id ", claims.Issuer, "does not exist: ", err)
+		http.Error(w, "You are not logged in", http.StatusUnauthorized)
+		return
+	}
+
+	isProfessor, err := isProfessor(claims.Issuer)
+	if err != nil {
+		http.Error(w, "Error while checking if user is a professor", http.StatusInternalServerError)
+		return
+	}
+
+	isAdmin, err := isAdmin(claims.Issuer)
+	if err != nil {
+		http.Error(w, "Error while checking if user is an admin", http.StatusInternalServerError)
+		return
+	}
+
+	adminOrProfessor := model.AdminOrProfessor{
+		UserID:      claims.Issuer,
+		IsProfessor: isProfessor,
+		IsAdmin:     isAdmin}
+
+	resp, err := json.Marshal(adminOrProfessor)
+	if err != nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_, err = w.Write(resp)
+	if err != nil {
+		log.Printf("Check Is Admin Or Professor failed: %v\n", err)
+	}
+}
+
 func LoginPerson(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Invalid HTTP method. Only POST is allowed.", http.StatusMethodNotAllowed)
