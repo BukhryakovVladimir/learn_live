@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"encoding/json"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/livekit/protocol/auth"
 	"log"
@@ -60,8 +61,18 @@ func GetToken(w http.ResponseWriter, r *http.Request) {
 		Expires: time.Now().Add(24 * time.Hour),
 	}
 
+	resp, err := json.Marshal(res)
+	if err != nil {
+		http.Error(w, "Error marhalling token", http.StatusInternalServerError)
+		return
+	}
+
 	at.Value = res
 	http.SetCookie(w, &at)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(resp)
 }
 
 func getJoinToken(roomID int, username string) (string, error) {
