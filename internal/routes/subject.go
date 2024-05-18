@@ -140,6 +140,84 @@ func ListCurrentUserSubjects(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func ListSubjectsOfAStudent(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Invalid HTTP method. Only GET is allowed.", http.StatusMethodNotAllowed)
+		return
+	}
+
+	paramStudentID := r.URL.Query().Get("student_id")
+
+	studentID, err := strconv.Atoi(paramStudentID)
+	if err != nil {
+		http.Error(w, "student_id must be an integer", http.StatusBadRequest)
+	}
+
+	listSubjectsOfAStudentQuery := `
+			SELECT gs.subject_id, s.subject_name
+			FROM group_subject gs 
+			JOIN person p ON gs.group_id = p.group_id
+			JOIN subject s ON gs.subject_id = s.id
+			WHERE p.id = $1
+			ORDER BY gs.subject_id;`
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(queryTimeLimit)*time.Second)
+	defer cancel()
+
+	rows, err := db.QueryContext(ctx, listSubjectsOfAStudentQuery, studentID)
+	defer rows.Close()
+	if err != nil {
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			log.Println("ListSubjectsOfAStudent QueryRowContext deadline exceeded: ", err)
+			http.Error(w, "Database query time limit exceeded", http.StatusGatewayTimeout)
+			return
+		}
+
+		var pgErr *pq.Error
+		if ok := errors.As(err, &pgErr); !ok {
+			log.Println("Internal server error: ", err)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+
+		log.Println("Database error: ", pgErr)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	var subject model.Subject
+	var subjects []model.Subject
+
+	for rows.Next() {
+		if err := rows.Scan(&subject.ID, &subject.SubjectName); err != nil {
+			log.Println(err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+
+		subjects = append(subjects, subject)
+	}
+
+	if err := rows.Err(); err != nil {
+		log.Println(err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	resp, err := json.Marshal(subjects)
+	if err != nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_, err = w.Write(resp)
+	if err != nil {
+		log.Printf("List Subjects Of A Student failed: %v\n", err)
+	}
+}
+
 func ListSubjects(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Invalid HTTP method. Only GET is allowed.", http.StatusMethodNotAllowed)

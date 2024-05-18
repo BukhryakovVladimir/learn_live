@@ -14,10 +14,17 @@ import (
 	"unicode/utf8"
 )
 
-func ListCurrentUserTotalGrades(w http.ResponseWriter, r *http.Request) {
+func ListCurrentUserTotalGradesBySubject(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Invalid HTTP method. Only GET is allowed.", http.StatusMethodNotAllowed)
 		return
+	}
+
+	paramSubjectID := r.URL.Query().Get("subject_id")
+
+	subjectID, err := strconv.Atoi(paramSubjectID)
+	if err != nil {
+		http.Error(w, "subject_id must be an integer", http.StatusBadRequest)
 	}
 
 	cookie, err := r.Cookie(jwtName)
@@ -63,12 +70,12 @@ func ListCurrentUserTotalGrades(w http.ResponseWriter, r *http.Request) {
 	SELECT DISTINCT stg.subject_id, s.subject_name, stg.grade
 	FROM student_total_grades stg
 	JOIN subject s ON stg.subject_id = s.id  
-	WHERE student_id = $1`
+	WHERE student_id = $1 AND stg.subject_id = $2`
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(queryTimeLimit)*time.Second)
 	defer cancel()
 
-	rows, err := db.QueryContext(ctx, listCurrentUserTotalGradesQuery, claims.Issuer)
+	rows, err := db.QueryContext(ctx, listCurrentUserTotalGradesQuery, claims.Issuer, subjectID)
 	defer rows.Close()
 
 	if err != nil {
@@ -126,7 +133,7 @@ func ListCurrentUserTotalGrades(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func ListTotalGradesOfAStudent(w http.ResponseWriter, r *http.Request) {
+func ListTotalGradesOfAStudentBySubject(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Invalid HTTP method. Only GET is allowed.", http.StatusMethodNotAllowed)
 		return
@@ -139,6 +146,13 @@ func ListTotalGradesOfAStudent(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "student_id must be an integer", http.StatusBadRequest)
 	}
 
+	paramSubjectID := r.URL.Query().Get("subject_id")
+
+	subjectID, err := strconv.Atoi(paramSubjectID)
+	if err != nil {
+		http.Error(w, "subject_id must be an integer", http.StatusBadRequest)
+	}
+
 	listTotalGradesOfAStudentQuery := `
 	SELECT DISTINCT stg.student_id, p.firstname, p.lastname, p.group_id, 
 	       g.group_name, stg.subject_id, s.subject_name, stg.grade
@@ -147,12 +161,12 @@ func ListTotalGradesOfAStudent(w http.ResponseWriter, r *http.Request) {
 	JOIN person p ON stg.student_id = p.id
 	JOIN group_subject gs ON p.group_id = gs.group_id
 	JOIN group_uni g ON gs.group_id = g.id
-	WHERE student_id = $1`
+	WHERE student_id = $1 AND stg.subject_id = $2`
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(queryTimeLimit)*time.Second)
 	defer cancel()
 
-	rows, err := db.QueryContext(ctx, listTotalGradesOfAStudentQuery, studentID)
+	rows, err := db.QueryContext(ctx, listTotalGradesOfAStudentQuery, studentID, subjectID)
 	defer rows.Close()
 
 	if err != nil {

@@ -13,10 +13,17 @@ import (
 	"time"
 )
 
-func ListCurrentUserGradesAndAttendance(w http.ResponseWriter, r *http.Request) {
+func ListCurrentUserGradesAndAttendanceBySubject(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Invalid HTTP method. Only GET is allowed.", http.StatusMethodNotAllowed)
 		return
+	}
+
+	paramSubjectID := r.URL.Query().Get("subject_id")
+
+	subjectID, err := strconv.Atoi(paramSubjectID)
+	if err != nil {
+		http.Error(w, "subject_id must be an integer", http.StatusBadRequest)
 	}
 
 	cookie, err := r.Cookie(jwtName)
@@ -62,12 +69,12 @@ func ListCurrentUserGradesAndAttendance(w http.ResponseWriter, r *http.Request) 
 	SELECT sg.subject_id, s.subject_name, sg.grade, sg.has_attended
 	FROM student_grades sg
 	JOIN subject s ON sg.subject_id = s.id  
-	WHERE student_id = $1`
+	WHERE student_id = $1 AND sg.subject_id = $2`
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(queryTimeLimit)*time.Second)
 	defer cancel()
 
-	rows, err := db.QueryContext(ctx, listCurrentUserGradesAndAttendanceQuery, claims.Issuer)
+	rows, err := db.QueryContext(ctx, listCurrentUserGradesAndAttendanceQuery, claims.Issuer, subjectID)
 	defer rows.Close()
 
 	if err != nil {
@@ -126,7 +133,7 @@ func ListCurrentUserGradesAndAttendance(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
-func ListGradesAndAttendanceOfAStudent(w http.ResponseWriter, r *http.Request) {
+func ListGradesAndAttendanceOfAStudentBySubject(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Invalid HTTP method. Only GET is allowed.", http.StatusMethodNotAllowed)
 		return
@@ -139,6 +146,13 @@ func ListGradesAndAttendanceOfAStudent(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "student_id must be an integer", http.StatusBadRequest)
 	}
 
+	paramSubjectID := r.URL.Query().Get("subject_id")
+
+	subjectID, err := strconv.Atoi(paramSubjectID)
+	if err != nil {
+		http.Error(w, "subject_id must be an integer", http.StatusBadRequest)
+	}
+
 	listGradesAndAttendanceOfAStudentQuery := `
 	SELECT sg.student_id, p.firstname, p.lastname, p.group_id, 
 	       g.group_name, sg.subject_id, s.subject_name, sg.grade, sg.has_attended
@@ -147,12 +161,12 @@ func ListGradesAndAttendanceOfAStudent(w http.ResponseWriter, r *http.Request) {
 	JOIN person p ON sg.student_id = p.id
 	JOIN group_subject gs ON p.group_id = gs.group_id
 	JOIN group_uni g ON gs.group_id = g.id
-	WHERE student_id = $1`
+	WHERE student_id = $1 AND sg.subject_id = $2`
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(queryTimeLimit)*time.Second)
 	defer cancel()
 
-	rows, err := db.QueryContext(ctx, listGradesAndAttendanceOfAStudentQuery, studentID)
+	rows, err := db.QueryContext(ctx, listGradesAndAttendanceOfAStudentQuery, studentID, subjectID)
 	defer rows.Close()
 
 	if err != nil {

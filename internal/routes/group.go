@@ -83,6 +83,89 @@ func ListGroups(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func ListStudentsOfAGroup(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Invalid HTTP method. Only GET is allowed.", http.StatusMethodNotAllowed)
+		return
+	}
+
+	paramGroupID := r.URL.Query().Get("group_id")
+
+	groupID, err := strconv.Atoi(paramGroupID)
+	if err != nil {
+		http.Error(w, "group_id must be an integer", http.StatusBadRequest)
+	}
+
+	listGroupsQuery := `
+		SELECT id, username, firstname, lastname, group_id, sex, birthdate
+		FROM person
+		WHERE group_id = $1 AND is_professor = false AND is_admin = false;`
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(queryTimeLimit)*time.Second)
+	defer cancel()
+
+	rows, err := db.QueryContext(ctx, listGroupsQuery, groupID)
+	defer rows.Close()
+	if err != nil {
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			log.Println("ListStudentsOfAGroup QueryRowContext deadline exceeded: ", err)
+			http.Error(w, "Database query time limit exceeded", http.StatusGatewayTimeout)
+			return
+		}
+
+		var pgErr *pq.Error
+		if ok := errors.As(err, &pgErr); !ok {
+			log.Println("Internal server error: ", err)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+
+		log.Println("Database error: ", pgErr)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	var student model.Student
+	var students []model.Student
+
+	for rows.Next() {
+		if err := rows.Scan(
+			&student.ID,
+			&student.Username,
+			&student.FirstName,
+			&student.LastName,
+			&student.GroupID,
+			&student.Sex,
+			&student.BirthDate); err != nil {
+			log.Println(err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+
+		students = append(students, student)
+	}
+
+	if err := rows.Err(); err != nil {
+		log.Println(err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	resp, err := json.Marshal(students)
+	if err != nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_, err = w.Write(resp)
+	if err != nil {
+		log.Printf("List Students Of A Group failed: %v\n", err)
+	}
+
+}
+
 func AddGroup(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Invalid HTTP method. Only POST is allowed.", http.StatusMethodNotAllowed)
