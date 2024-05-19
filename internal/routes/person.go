@@ -10,8 +10,10 @@ import (
 	"github.com/lib/pq"
 	"golang.org/x/crypto/bcrypt"
 	"log"
+	"net"
 	"net/http"
 	"regexp"
+	"strings"
 	"time"
 )
 
@@ -290,9 +292,12 @@ func LoginPerson(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	domain := getDomain(r.Host)
+
 	tokenCookie := http.Cookie{
 		Name:     jwtName,
 		Value:    token,
+		Domain:   domain,
 		Expires:  time.Now().Add(time.Hour * 24 * 30),
 		HttpOnly: false,
 	}
@@ -327,4 +332,11 @@ func isValidPassword(password string) bool {
 	regexpPattern := regexp.MustCompile(pattern)
 
 	return regexpPattern.MatchString(password) && len(password) >= 8
+}
+
+func getDomain(host string) string {
+	if strings.Contains(host, ":") {
+		host, _, _ = net.SplitHostPort(host)
+	}
+	return host
 }

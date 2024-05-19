@@ -56,8 +56,11 @@ func GetToken(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to get token", http.StatusInternalServerError)
 	}
 
+	domain := getDomain(r.Host)
+
 	at := http.Cookie{
 		Name:    "learn_live_ACCESS_TOKEN",
+		Domain:  domain,
 		Expires: time.Now().Add(24 * time.Hour),
 	}
 

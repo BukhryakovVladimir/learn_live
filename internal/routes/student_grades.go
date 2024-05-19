@@ -154,7 +154,7 @@ func ListGradesAndAttendanceOfAStudentBySubject(w http.ResponseWriter, r *http.R
 	}
 
 	listGradesAndAttendanceOfAStudentQuery := `
-	SELECT sg.student_id, p.firstname, p.lastname, p.group_id, 
+	SELECT DISTINCT (sg.id), sg.student_id, p.firstname, p.lastname, p.group_id, 
 	       g.group_name, sg.subject_id, s.subject_name, sg.grade, sg.has_attended
 	FROM student_grades sg
 	JOIN subject s ON sg.subject_id = s.id
@@ -193,6 +193,7 @@ func ListGradesAndAttendanceOfAStudentBySubject(w http.ResponseWriter, r *http.R
 
 	for rows.Next() {
 		if err := rows.Scan(
+			&studentGrade.ID,
 			&studentGrade.StudentID,
 			&studentGrade.StudentFirstname,
 			&studentGrade.StudentLastname,

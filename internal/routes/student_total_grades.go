@@ -154,7 +154,7 @@ func ListTotalGradesOfAStudentBySubject(w http.ResponseWriter, r *http.Request) 
 	}
 
 	listTotalGradesOfAStudentQuery := `
-	SELECT DISTINCT stg.student_id, p.firstname, p.lastname, p.group_id, 
+	SELECT DISTINCT (stg.id), stg.student_id, p.firstname, p.lastname, p.group_id, 
 	       g.group_name, stg.subject_id, s.subject_name, stg.grade
 	FROM student_total_grades stg
 	JOIN subject s ON stg.subject_id = s.id
@@ -193,6 +193,7 @@ func ListTotalGradesOfAStudentBySubject(w http.ResponseWriter, r *http.Request) 
 
 	for rows.Next() {
 		if err := rows.Scan(
+			&studentTotalGrade.ID,
 			&studentTotalGrade.StudentID,
 			&studentTotalGrade.StudentFirstname,
 			&studentTotalGrade.StudentLastname,
