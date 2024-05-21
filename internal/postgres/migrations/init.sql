@@ -40,31 +40,31 @@ CREATE TABLE IF NOT EXISTS room (
     id INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     subject_id INTEGER,
     room_name VARCHAR(255),
-    FOREIGN KEY (subject_id) REFERENCES subject(id),
+    FOREIGN KEY (subject_id) REFERENCES subject(id) ON DELETE CASCADE,
     UNIQUE (subject_id, room_name)
 );
 
 CREATE TABLE IF NOT EXISTS group_subject (
     group_id INTEGER,
     subject_id INTEGER,
-    FOREIGN KEY (group_id) REFERENCES group_uni(id),
-    FOREIGN KEY (subject_id) REFERENCES subject(id),
+    FOREIGN KEY (group_id) REFERENCES group_uni(id) ON DELETE CASCADE,
+    FOREIGN KEY (subject_id) REFERENCES subject(id) ON DELETE CASCADE,
     PRIMARY KEY (group_id, subject_id)
 );
 
 CREATE TABLE IF NOT EXISTS professor_subject (
     professor_id INTEGER,
     subject_id INTEGER,
-    FOREIGN KEY (professor_id) REFERENCES person(id),
-    FOREIGN KEY (subject_id) REFERENCES subject(id),
+    FOREIGN KEY (professor_id) REFERENCES person(id) ON DELETE CASCADE,
+    FOREIGN KEY (subject_id) REFERENCES subject(id) ON DELETE CASCADE,
     PRIMARY KEY (professor_id, subject_id)
 );
 
 CREATE TABLE IF NOT EXISTS professor_group (
     professor_id INTEGER,
     group_id INTEGER,
-    FOREIGN KEY (professor_id) REFERENCES person(id),
-    FOREIGN KEY (group_id) REFERENCES group_uni(id),
+    FOREIGN KEY (professor_id) REFERENCES person(id) ON DELETE CASCADE,
+    FOREIGN KEY (group_id) REFERENCES group_uni(id) ON DELETE CASCADE,
     PRIMARY KEY (professor_id, group_id)
 );
 
@@ -74,8 +74,8 @@ CREATE TABLE IF NOT EXISTS student_grades (
     subject_id INTEGER,
     grade INTEGER DEFAULT 0,
     has_attended BOOL DEFAULT true,
-    FOREIGN KEY (student_id) REFERENCES person(id),
-    FOREIGN KEY (subject_id) REFERENCES subject(id)
+    FOREIGN KEY (student_id) REFERENCES person(id) ON DELETE CASCADE,
+    FOREIGN KEY (subject_id) REFERENCES subject(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS student_total_grades (
@@ -83,7 +83,7 @@ CREATE TABLE IF NOT EXISTS student_total_grades (
     student_id INTEGER,
     subject_id INTEGER,
     grade VARCHAR(50),
-    FOREIGN KEY (student_id) REFERENCES person(id),
-    FOREIGN KEY (subject_id) REFERENCES subject(id),
+    FOREIGN KEY (student_id) REFERENCES person(id) ON DELETE CASCADE,
+    FOREIGN KEY (subject_id) REFERENCES subject(id) ON DELETE CASCADE,
     UNIQUE (student_id, subject_id)
 );

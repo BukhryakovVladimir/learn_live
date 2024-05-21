@@ -329,7 +329,7 @@ func AddSubject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !isAdmin {
-		http.Error(w, "You do not have administrator privileges to add movies", http.StatusUnauthorized)
+		http.Error(w, "You do not have administrator privileges to add subjects", http.StatusUnauthorized)
 		return
 	}
 
@@ -435,7 +435,7 @@ func UpdateSubject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !isAdmin {
-		http.Error(w, "You do not have administrator privileges to add movies", http.StatusUnauthorized)
+		http.Error(w, "You do not have administrator privileges to update subjects", http.StatusUnauthorized)
 		return
 	}
 
@@ -541,7 +541,7 @@ func DeleteSubject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !isAdmin {
-		http.Error(w, "You do not have administrator privileges to add movies", http.StatusUnauthorized)
+		http.Error(w, "You do not have administrator privileges to delete subjects", http.StatusUnauthorized)
 		return
 	}
 
@@ -571,11 +571,6 @@ func DeleteSubject(w http.ResponseWriter, r *http.Request) {
 		if ok := errors.As(err, &pgErr); !ok {
 			log.Println("Internal server error: ", err)
 			http.Error(w, "Internal server error", http.StatusInternalServerError)
-			return
-		}
-		if pgErr.Code == "23505" {
-			log.Println("Unique key violation, subject already exists: ", err)
-			http.Error(w, "Subject already exists", http.StatusGatewayTimeout)
 			return
 		}
 
