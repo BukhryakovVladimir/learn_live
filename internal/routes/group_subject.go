@@ -277,7 +277,7 @@ func AddGroupSubject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !isAdmin {
-		http.Error(w, "You do not have administrator privileges to add movies", http.StatusUnauthorized)
+		http.Error(w, "You do not have administrator privileges to add group_subject relation", http.StatusUnauthorized)
 		return
 	}
 
@@ -377,7 +377,7 @@ func UpdateGroupSubject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !isAdmin {
-		http.Error(w, "You do not have administrator privileges to add movies", http.StatusUnauthorized)
+		http.Error(w, "You do not have administrator privileges to update group_subject relation", http.StatusUnauthorized)
 		return
 	}
 
@@ -479,7 +479,7 @@ func DeleteGroupSubject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !isAdmin {
-		http.Error(w, "You do not have administrator privileges to add movies", http.StatusUnauthorized)
+		http.Error(w, "You do not have administrator privileges to delete group_subject relation", http.StatusUnauthorized)
 		return
 	}
 

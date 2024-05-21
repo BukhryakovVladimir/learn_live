@@ -60,7 +60,7 @@ func SignupPerson(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !isAdmin {
-		http.Error(w, "You do not have administrator privileges to add movies", http.StatusUnauthorized)
+		http.Error(w, "You do not have administrator privileges to add user", http.StatusUnauthorized)
 		return
 	}
 

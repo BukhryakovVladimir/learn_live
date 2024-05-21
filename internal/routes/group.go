@@ -207,7 +207,7 @@ func AddGroup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !isAdmin {
-		http.Error(w, "You do not have administrator privileges to add movies", http.StatusUnauthorized)
+		http.Error(w, "You do not have administrator privileges to add groups", http.StatusUnauthorized)
 		return
 	}
 
@@ -313,7 +313,7 @@ func UpdateGroup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !isAdmin {
-		http.Error(w, "You do not have administrator privileges to add movies", http.StatusUnauthorized)
+		http.Error(w, "You do not have administrator privileges to update groups", http.StatusUnauthorized)
 		return
 	}
 
@@ -419,7 +419,7 @@ func DeleteGroup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !isAdmin {
-		http.Error(w, "You do not have administrator privileges to add movies", http.StatusUnauthorized)
+		http.Error(w, "You do not have administrator privileges to delete groups", http.StatusUnauthorized)
 		return
 	}
 
