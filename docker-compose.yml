@@ -1,0 +1,59 @@
+version: '3'
+services:
+  golang:
+    container_name: learn_live_golang
+    build:
+      context: .
+      dockerfile: ./build/package/Dockerfile
+    ports:
+      - "3000:3000"
+    restart: on-failure
+    environment:
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_USER=${DB_USER}
+      - DB_NAME=${DB_NAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - SECRET_KEY=${SECRET_KEY}
+      - JWT_NAME=${JWT_NAME}
+      - CORS_ORIGIN=${CORS_ORIGIN}
+      #      - TSL_CERT=${TSL_CERT}
+      #      - TSL_KEY=${TSL_KEY}
+      - PORT=${PORT}
+      - QUERY_TIME_LIMIT=${QUERY_TIME_LIMIT}
+      - MAX_OPEN_CONNS=${MAX_OPEN_CONNS}
+      - MAX_IDLE_CONNS=${MAX_IDLE_CONNS}
+      - CONN_MAX_LIFETIME=${CONN_MAX_LIFETIME}
+    volumes:
+      - api:/usr/src/golang/
+      - ./ssl:/etc/golang/ssl:ro
+    depends_on:
+      - learn_live-postgres
+    networks:
+      - learn_live
+
+  learn_live-postgres:
+    image: postgres:latest
+    container_name: learn_live_db_postgres
+    environment:
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=${DB_NAME}
+      - DATABASE_HOST=${DB_HOST}
+    ports:
+      - "5432:5432"
+    volumes:
+      - database_postgres:/var/lib/postgresql/data
+      - ./internal/postgres/migrations/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - learn_live
+
+
+volumes:
+  api:
+  database_postgres:
+
+# Сети, создаваемые для коммуникации между контейнерами
+networks:
+  learn_live:
+    driver: bridge
