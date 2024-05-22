@@ -19,7 +19,7 @@ func ListGroups(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	listGroupsQuery := `SELECT id, group_name FROM group_uni;`
+	listGroupsQuery := `SELECT id, group_name FROM group_uni WHERE id <> 1 AND id <> 2;`
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(queryTimeLimit)*time.Second)
 	defer cancel()
